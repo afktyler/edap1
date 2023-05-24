@@ -1,0 +1,365 @@
+---
+title: "EDA Project 1"
+author: "Tyler"
+date: "2022-10-05"
+output:
+  html_document:
+    code_folding: 
+    df_print: paged
+    highlight: tango
+    toc: yes
+    number_sections: no
+    toc_depth: 2
+    theme: flatly
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+knitr::opts_knit$set(root.dir = "~/")
+```
+
+```{r warning=F, message=F}
+library(tidyverse)
+library(seriation)
+library(tidyquant)
+```
+
+```{r}
+airbnb = read.csv("~/Airbnb_Open_data.csv")
+
+airbnb <- airbnb %>% 
+  select(id, host.id,neighbourhood.group,neighbourhood,room.type,Construction.year,price,
+         service.fee,minimum.nights, number.of.reviews, review.rate.number, availability.365)
+
+
+
+```
+
+
+# **Chapter 1:**  Data Descriptions
+The following data is data taken from Airbnb in the New York City. This data is from the year 2019-2022. The variables in the data consist of ID, Name, host.id, host_identify_verified, host.name, neighbourhood.group, neighbourhood, lat, long, country, country.code, instant_bookable, cancellation_policy, room.type, construction.year, price, service.fee, minium.nights,number.of.reviews, last.review, reviews.per.month, review.rate.number, caculated.host.listings.count, availability.365, and house_rules. The price and service.fee are in USD.
+
+# **Chapter 2:** EDA
+
+
+
+* ## **Section 1:**  I will be finding the center, spread, shape of the distribution for each variable. I also will be Checking for outliers
+
+### **Price**
+```{r}
+airbnb %>%
+  pull(price) %>% 
+  psych::describe()
+
+airbnb %>% drop_na() %>% 
+  ggplot(mapping = aes(x = price)) +
+  geom_freqpoly(bins = 150)
+
+airbnb %>% 
+  filter(price == 50)
+```
+I noticed that there was abnormal low value for price. To make sure it was not an outlier I wanted to check the room type. The room type listed for it is a private room which would make since for why it is only $50 a night. Some have them listed as an entire home/apartment. This could have something to do with the location of the Airbnb listed. This would require further investigation. Also the distribution is pretty symmetrical. 
+
+
+
+### **Service Fee**
+```{r}
+airbnb %>%
+  pull(service.fee) %>% 
+  psych::describe()
+
+airbnb %>% drop_na() %>% 
+  ggplot(mapping = aes(x = service.fee)) +
+  geom_freqpoly(bins = 75)+
+  labs(title = "Distribution of Service Fee") +
+  
+  theme_tq() 
+
+
+```
+Seems that distribution is pretty symterical for service fee.
+
+
+### **Number of Reviews**
+```{r}
+airbnb %>%
+  pull(number.of.reviews) %>% 
+  psych::describe()
+
+airbnb %>% drop_na() %>% 
+  ggplot(mapping = aes(x = number.of.reviews)) +
+  geom_freqpoly(bins = 50) +
+
+labs(title = "Distribution of Number of Reviews") +
+  
+  theme_tq() 
+
+```
+The distribution skews very left. This is probably do to the fact that many people leave 0 reviews.
+
+
+### **Neighourhood Group **
+```{r}
+airbnb %>% 
+  count(neighbourhood.group) %>% 
+  mutate(percentage = (n/sum(n)) %>% scales::percent()) 
+  
+
+#graph 1
+airbnb %>% 
+  ggplot() +
+  geom_bar(mapping = aes(x = neighbourhood.group, fill = neighbourhood.group)) +
+  scale_fill_tq() +
+  
+    labs( x = "Neighbourhood Group", 
+          y = "Frequency", 
+          title = "Distribution of Neighbourhood Groups",
+        caption = "Manhattan seems to have the most airbnbs listed") +
+  
+  theme_tq() +
+  theme(legend.position = "none") 
+
+#getting rid of miss spellings and blank answers
+airbnb_v_c <- airbnb %>% 
+  mutate(neighbourhood.group = case_when(
+    neighbourhood.group == "Bronx" ~ "Bronx",
+    neighbourhood.group == "Brooklyn" ~ "Brooklyn",
+    neighbourhood.group == "brookln" ~ "Brooklyn",
+    neighbourhood.group == "manhatan" ~ "Manhattan",
+    neighbourhood.group == "Manhattan" ~ "Manhattan",
+    neighbourhood.group == "Queens" ~ "Queens",
+    neighbourhood.group == "Staten Island" ~ "Staten Island",
+    TRUE ~ NA_character_
+  ))
+
+#graph 2
+airbnb_v_c %>% drop_na %>% 
+  ggplot() +
+  geom_bar(mapping = aes(x = neighbourhood.group, fill = neighbourhood.group)) +
+  scale_fill_tq() +
+  
+    labs( x = "Neighbourhood Group", 
+          y = "Frequency", 
+          title = "Distribution of Neighbourhood Groups",
+        caption = "Manhattan seems to have the most airbnbs listed") +
+  
+  theme_tq() +
+  theme(legend.position = "none") 
+
+```
+There seems to be some missing values that people either did not fill out or forgot. Also someone people have miss spelled neighborhood groups so it made it there own category. You can also see this on the graph where the miss spelled data is.
+
+
+
+
+
+### **Room Type**
+```{r}
+airbnb %>% 
+  count(room.type) %>% 
+  mutate(percentage = (n/sum(n)) %>% scales::percent()) %>% 
+  arrange(desc(n))
+
+airbnb_v_c %>% drop_na %>% 
+  ggplot() +
+  geom_bar(mapping = aes(x = room.type, fill = room.type)) +
+  scale_fill_tq() +
+  
+    labs( x = "Room Type", 
+          y = "Frequency", 
+          title = "Distribution of Room Types") +
+  
+  theme_tq() +
+  theme(legend.position = "none") 
+```
+It seems the majority of room types are entire home/apartment and private room.
+
+
+* ## **Section 2:** **Now I will be checking the relationship between the variables**
+
+  * ### **I:** **Two Categorical Variables**
+  
+#### **Room Type and Neighbourhood Group**
+```{r warning=F, message=F}
+airbnb_v_c %>% drop_na() %>% 
+  count(room.type,neighbourhood.group) %>% 
+  mutate(percentage = (n/sum(n)) %>% scales::percent()) %>%
+  arrange(desc(n))
+
+#graph 1
+airbnb_v_c %>% drop_na() %>% 
+  ggplot(mapping = aes(x = neighbourhood.group, fill = room.type)) +
+  geom_bar(position = "dodge") +
+  theme_tq() +
+  labs(title = "Distribution of Neighbourhood Group and Room Type") +
+   theme(legend.position = "none",
+        plot.title = element_text(size = 13, face = "bold"))
+
+#graph 2
+airbnb_v_c %>% drop_na() %>% 
+  ggplot(mapping = aes(x = neighbourhood.group, fill = room.type))+
+  geom_bar(position = "fill") +
+  scale_fill_tq() +
+  theme_tq() + 
+  labs(title = "Distribution of Neighbourhood Group and Room Type") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 13, face = "bold"))
+
+
+joint_mb <- airbnb_v_c %>% drop_na() %>% 
+  count(neighbourhood.group,room.type) %>% 
+  mutate(pct = n/sum(n))
+
+#graph 3
+joint_mb %>% 
+  ggplot(mapping = aes(x = room.type, y = neighbourhood.group)) +
+  geom_tile(mapping = aes(fill = pct)) +
+  geom_text(aes(label = pct %>% scales::percent(accuracy = 0.1)), size = 3) +
+  
+  #labels and scales
+  
+  scale_fill_gradient(low = "white",high = palette_light()[1]) +#palette_light() shows color 
+  labs(title = "Heatmap of Joint Distribution of Neighbourhood Group and Room Type")+
+  
+  #themes
+  theme_tq() + 
+  theme(legend.position = "none",
+        plot.title = element_text(size = 11, face = "bold"),
+        plot.caption = element_text(face = "bold.italic"))
+
+#graph 4
+joint_mb <- airbnb_v_c %>% drop_na() %>% 
+  filter(neighbourhood.group == "Manhattan") %>% 
+  count(neighbourhood.group,room.type) %>% 
+  mutate(pct = n/sum(n))
+
+joint_mb %>% 
+  ggplot(mapping = aes(x = room.type, y = neighbourhood.group)) +
+  geom_tile(mapping = aes(fill = pct)) +
+  geom_text(aes(label = pct %>% scales::percent(accuracy = 0.1)), size = 3) +
+  
+  #labels and scales
+  
+  scale_fill_gradient(low = "white",high = palette_light()[1]) +#palette_light() shows color 
+  labs(title = "Heatmap of Joint Distribution of Neighbourhood Group(Manhattan) and Room Type")+
+  
+  #themes
+  theme_tq() + 
+  theme(legend.position = "none",
+        plot.title = element_text(size = 10, face = "bold"),
+        plot.caption = element_text(face = "bold.italic"))
+
+
+```
+
+  
+
+
+
+
+  
+
+  * ### **II:** **Two continuous variables**
+  
+#### **Price and Service Fees**
+```{r}
+cor_p_s = cor(airbnb$price,airbnb$service.fee, use = "complete.obs")
+
+cor_p_s
+
+
+airbnb %>% drop_na() %>% 
+  count(price, service.fee) %>% 
+  arrange(desc(n))
+
+airbnb %>% drop_na() %>%
+  ggplot(mapping = aes(x = price, y = service.fee)) +
+  geom_point(alpha = 0.1) +
+  theme_tq() + 
+  labs(title = "Distribution of Service Price and Price") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 15, face = "bold"))
+
+
+```
+  
+
+  * ### **III:** **One Categorical Variable and One Continuous Variable**
+  
+####  **Room Type and Number of Reviews**
+```{r}
+
+airbnb_v_c %>% drop_na() %>% 
+  count(room.type, number.of.reviews) %>% 
+  arrange(desc(number.of.reviews)) 
+
+airbnb %>% drop_na() %>% 
+  group_by(room.type) %>% 
+  summarise(avg_number_reviews = mean(number.of.reviews))
+
+airbnb %>% drop_na() %>% 
+  ggplot(mapping = aes(x = room.type , y = number.of.reviews ,fill = room.type)) + 
+  geom_boxplot() +
+  theme_tq() +
+  scale_color_tq()+
+  coord_flip() +
+  labs(title = "Box Plot of Room Type and Number of Reviews") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 15, face = "bold"))
+ 
+
+
+
+
+
+
+```
+  
+
+  * ### **IV:** **Two continuous variables and One Categorical Variable**
+  
+#### **Number of Review, Price, and Room Type**
+```{r}
+
+airbnb_ccc <- airbnb %>% drop_na() %>% 
+  filter(number.of.reviews > 0) %>% 
+  count(number.of.reviews,price,room.type) %>% 
+  arrange(desc(number.of.reviews))
+ airbnb_ccc 
+
+airbnb_ccc %>% 
+  group_by(room.type) %>% 
+  summarise(sum_rev = sum(number.of.reviews))
+ 
+airbnb %>% drop_na() %>% 
+ ggplot(mapping = aes(x = number.of.reviews, y = price , color = room.type)) + 
+  geom_point(size = 3, alpha = .5) +
+  theme_tq() + 
+  labs(title = "Distribution Number of Review, Price, and Room Type") +
+  theme(
+        plot.title = element_text(size = 15, face = "bold"))
+
+
+
+```
+  
+
+# **Chapter 3:** **Research Questions and findings from Section 2**
+
+  In section 2 of chapter 2 I was looking at two categorical variables, two continuous variables, One categorical variable and one continuous variable, and two continuous variables and one categorical variable. The variables that I picked for two categorical variables were room type and neighbourhood group. I first found the analytical percentage distribution. For the first visual graph I decided to use a bar graph. I noticed that Manhattan was the only one with hotel room types. Then I did a bar graph but I used the fill option to give another look. I also could still only see hotel room types for Manhattan. I decided to look at the joint distribution. I saw that Manhattan had the most so I did another joint distribution of just Manhattan to see the breakdown. I saw that 60% was the entire home/apartment. For the two continuous variables I picked price and service fee. Since both were analytical I did a correlation. To my surprise it was .99. So I checked with a scatter plot to see if it was a .99 and it indeed gave me a nearly perfect positive linear line. The next section was one continuous and one categorical. I picked a number of reviews and room type. So I found the combination of number of reviews and room type. The highest number of combinations was zero reviews which is not surprising because the average person does not liking leaving reviews on anything. So I decided to arrange in descending order by total number of reviews. I saw that the entire home/apartment and hotel had the highest amount of reviews. Then I decided to find the average number of reviews by room type. I was shocked to find the hotel had the highest amount of average reviews. I think the reason could be that some hotels might have incentives to leave reviews. It is also surprising because hotel has  the least amount of room types. So I thought using a box plot would look for the amount of reviews against the room types. You can also see here that the hotel does not have as many reviews compared to the other ones. Since the number of reviews for the other types besides hotel is much more dense on the lower end of number reviews this might be why the average number of reviews is much lower compared to hotel. For the last section two continuous variables and one categorical variable. I picked price, number of reviews, and room type. I checked the combination of the three and of course 0 reviews was the highest combination. SO I arranged by the largest amount of reviews which was still hotel and entire home/apartment. The interesting thing is that price between hotel and entire home/apartment was very large. I also decided to check who had the most reviews. I found the summation of reviews for room type. So when graphing I used a scatter plot. I made the x and y the continuous and the color categorical. When looking at the graph you can see that majority of the reviews are entire home/apartment.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
